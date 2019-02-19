@@ -1,0 +1,202 @@
+mport numpy as np
+import pandas as pd
+import scipy.stats as ss
+import scipy as scipy
+from datetime import datetime
+
+from sklearn import model_selection
+from sklearn.linear_model import LogisticRegression
+from sklearn import metrics
+
+from statsmodels.discrete.discrete_model import LogitResults, Logit
+import statsmodels.api as sm
+
+import pylab as pl
+
+from Stat_des import *
+
+
+#entree = r"C:\##########.s.xlsx"
+sortie = r"C:\##########.pickle"
+S = pd.read_pickle(sortie)
+
+#S = pd.read_excel(entree)
+#S = S.set_index('D')
+#S.to_pickle(sortie)
+
+
+
+
+print(S.shape)  #(1541, 146)
+
+#list(S.columns)
+
+import pandas_profiling 
+
+pandas_profiling.ProfileReport(S)
+
+
+df_tot = table
+var = 'TOP1000'
+               
+df_tot['Y']=df_tot[var].astype(float)
+FREQ(df_tot, 'Y', val = 'pct')
+
+# première étape pour ce module, il faut ajouter à la main le beta zéro - l'intercept
+
+df_tot['intercept'] = 1.0
+df_tot.columns
+
+# subdivision des données – éch.test = 30 % ; éch.app = 70 % #
+
+df_app=df_tot.sample(frac=0.7)
+df_test = df_tot.loc[~df_tot.index.isin(df_app.index)]
+
+print(df_app.shape)
+print(df_test.shape)
+
+
+
+train_cols =  ['intercept', 'Q_pv', 'appel_PDT', 'TOP_BUDG','TOP_PRET', 'Sans tél.', 'Q_prop']
+
+
+
+
+
+
+
+
+
+def Logit(nom, var) :
+    
+    global result_app
+    
+    tab = "df_{0}".format(nom)
+
+    logit = sm.Logit(eval(tab)['Y'], eval(tab)[train_cols].astype(float))
+
+    ## fit the model
+    
+    result = logit.fit()
+    
+    print("Resultats Table ", nom)
+    print(result.summary()),
+    print()
+
+    eval(tab)[var] = result.predict(eval(tab)[train_cols].astype(float))
+    
+    NUM(eval(tab), var)
+    #CROIS_QUANT(eval(tab),'Y',"score")
+ 
+
+    print(eval(tab).describe())
+    print()
+    
+    acc=eval(tab)['Y'].mean()
+    print('Taux acceptés Réel table', nom, '%0.2f' % acc)
+    print()
+    
+    if nom == 'app' :
+        result_app = result
+    
+Logit("app", "score")
+Logit("tot", "score")
+
+## Application de l apprentissage sur l echatillon test
+
+var = "score"
+
+df_test[var] = result_app.predict(df_test[train_cols].astype(float))
+    
+#NUM(df_test, var)
+#CROIS_QUANT(df_test,'Y',"score")
+
+print(df_test.describe())
+print()
+
+
+
+
+
+def calc_gini(nom, var) :
+
+   
+
+    tab = "df_{0}".format(nom)
+
+    nb_lignes = eval(tab).shape[0]
+
+   
+
+    nb_acc = eval(tab)['Y'].sum()
+
+    Tx_acc = eval(tab)['Y'].mean()
+
+ 
+
+    g = eval(tab)[[var,'Y']]
+
+ 
+
+    g_tri=g.sort_values(by=var, ascending = False)
+
+   
+
+    n = 0 ; s = 0 ; g_tri['n_cum']=0; g_tri['s_cum']=0; sum=0
+
+    for i in range(0, nb_lignes) :
+
+          n = n + 1/nb_lignes
+
+          s = s + g_tri.iloc[i,1]/nb_acc
+
+          sum = sum + 1/nb_lignes *s 
+
+          g_tri.iloc[i,2] = n
+
+          g_tri.iloc[i,3] = s
+
+           
+
+    gini = (sum - 0.5) / (0.5 - Tx_acc/2)
+
+    print('Gini', nom,': %0.2f'  % gini)
+
+   
+
+    g_tri.plot.scatter(x='n_cum',y='s_cum', label='Score (Gini = %0.2f)' % gini)
+
+    plt.plot([0, 1], [0, 1], 'k--')
+
+    plt.plot([0, Tx_acc, 1], [0, 1, 1], 'g--', label='Score parfait')
+
+    plt.xlim([0.0, 1.0])
+
+    plt.ylim([0.0, 1.0])
+
+    plt.xlabel('% Pop cum')
+
+    plt.ylabel('% Accept cum')
+
+    plt.title("Courbe de Lift %s" % nom)   
+
+    #plt.annotate(nom, xy=(0.05, 0.9))
+
+    plt.legend(loc="lower right")
+
+ 
+
+calc_gini("app", "score")
+
+calc_gini("test", "score")
+
+calc_gini("tot", "score")
+
+
+
+
+
+
+
+
+
